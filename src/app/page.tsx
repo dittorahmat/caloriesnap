@@ -3,213 +3,206 @@
 import {useState} from 'react';
 import {identifyFoodItems} from '@/ai/flows/identify-food-items';
 import {estimateCalorieCount} from '@/ai/flows/estimate-calorie-count';
-import {Button} from '@/components/ui/button';
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {Input} from '@/components/ui/input';
 import {Skeleton} from '@/components/ui/skeleton';
 import {useToast} from '@/hooks/use-toast';
 import {Icons} from '@/components/icons';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'; // Import Alert components
 
 export default function Home() {
   const [image, setImage] = useState<string | null>(null);
   const [foodItems, setFoodItems] = useState<string[] | null>(null);
   const [calorieEstimate, setCalorieEstimate] = useState<string | null>(null);
-  const [loadingFoodItems, setLoadingFoodItems] = useState(false);
-  const [loadingCalorieEstimate, setLoadingCalorieEstimate] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const {toast} = useToast();
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) {
-      setImage(null);
-      setFoodItems(null);
-      setCalorieEstimate(null);
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setImage(reader.result as string);
-      setFoodItems(null); // Reset results when new image is uploaded
-      setCalorieEstimate(null);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleFoodIdentification = async () => {
-    if (!image) {
-      toast({
-        variant: 'destructive',
-        title: 'No image uploaded',
-        description: 'Please upload an image before identifying food items.',
-      });
-      return;
-    }
-
-    setLoadingFoodItems(true);
-    setFoodItems(null); // Reset previous results
-    setCalorieEstimate(null); // Also reset calorie estimate
+  const processImage = async (imageDataUrl: string) => {
+    setIsProcessing(true);
+    setFoodItems(null);
+    setCalorieEstimate(null);
+    setError(null);
 
     try {
-      const result = await identifyFoodItems({photoUrl: image});
-      if (result.foodItems && result.foodItems.length > 0) {
-        setFoodItems(result.foodItems);
+      // Step 1: Identify Food Items
+      const identificationResult = await identifyFoodItems({photoUrl: imageDataUrl});
+      let identifiedItems: string[] = [];
+
+      if (identificationResult.foodItems && identificationResult.foodItems.length > 0) {
+        identifiedItems = identificationResult.foodItems;
+        setFoodItems(identifiedItems);
       } else {
-        setFoodItems([]); // Set to empty array if no items found
+         setFoodItems([]); // Set to empty array if no items found
          toast({
           title: 'No food items identified',
           description: 'Could not identify any food items in the image.',
         });
+        setIsProcessing(false); // Stop processing if no food found
+        return; // Exit the function early
       }
-    } catch (error: any) {
-      console.error('Error identifying food items:', error);
+
+      // Step 2: Estimate Calories (only if food items were identified)
+      const foodItemsString = identifiedItems.join(', ');
+      const calorieResult = await estimateCalorieCount({foodItems: foodItemsString});
+      setCalorieEstimate(calorieResult.estimatedCalories);
+
+    } catch (err: any) {
+      console.error('Error processing image:', err);
+      const errorMessage = err.message || 'An unexpected error occurred during processing. Please try again.';
+      setError(errorMessage);
       toast({
-        title: 'Error identifying food items',
-        description: error.message || 'Failed to identify food items. Please try again.',
+        title: 'Processing Error',
+        description: errorMessage,
         variant: 'destructive',
       });
+      // Reset results on error
       setFoodItems(null);
+      setCalorieEstimate(null);
     } finally {
-      setLoadingFoodItems(false);
+      setIsProcessing(false);
     }
   };
 
-  const handleCalorieEstimation = async () => {
-    if (!foodItems || foodItems.length === 0) {
-      toast({
-         variant: 'destructive',
-        title: 'No food items identified',
-        description: 'Please identify food items before estimating calories. If you already did, try identifying again.',
-      });
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Reset state when input changes or file is cleared
+    setImage(null);
+    setFoodItems(null);
+    setCalorieEstimate(null);
+    setError(null);
+    setIsProcessing(false);
+
+    if (!file) {
       return;
     }
 
-    setLoadingCalorieEstimate(true);
-    setCalorieEstimate(null); // Reset previous results
-
-    try {
-      const foodItemsString = foodItems.join(', ');
-      const result = await estimateCalorieCount({foodItems: foodItemsString});
-      setCalorieEstimate(result.estimatedCalories);
-    } catch (error: any) {
-      console.error('Error estimating calories:', error);
-      toast({
-        title: 'Error estimating calories',
-        description: error.message || 'Failed to estimate calories. Please try again.',
-        variant: 'destructive',
-      });
-      setCalorieEstimate(null);
-    } finally {
-      setLoadingCalorieEstimate(false);
+    // Validate file type (optional but recommended)
+    if (!file.type.startsWith('image/')) {
+        toast({
+            variant: 'destructive',
+            title: 'Invalid File Type',
+            description: 'Please upload an image file (e.g., JPG, PNG, GIF).',
+        });
+        e.target.value = ''; // Clear the input
+        return;
     }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const imageDataUrl = reader.result as string;
+      setImage(imageDataUrl);
+      processImage(imageDataUrl); // Start processing immediately
+    };
+    reader.onerror = () => {
+        console.error('Error reading file');
+        setError('Failed to read the image file.');
+        toast({
+            variant: 'destructive',
+            title: 'File Read Error',
+            description: 'Could not read the selected image file. Please try again.',
+        });
+        e.target.value = ''; // Clear the input
+    }
+    reader.readAsDataURL(file);
   };
+
 
   return (
     <div className="flex flex-col items-center justify-start min-h-screen p-4 sm:p-6 md:p-8 bg-secondary">
       <Card className="w-full max-w-lg mb-6 shadow-md rounded-lg">
         <CardHeader className="pb-4">
           <CardTitle className="text-2xl font-bold text-center text-primary">CalorieSnap</CardTitle>
-          <CardDescription className="text-center">Snap a photo of your meal to estimate its calories!</CardDescription>
+          <CardDescription className="text-center">Upload a photo of your meal!</CardDescription>
         </CardHeader>
         <CardContent>
            <Input
              type="file"
              accept="image/*"
              onChange={handleImageUpload}
-             className="mb-4 file:text-primary file:font-semibold hover:file:bg-primary/10 cursor-pointer"
+             disabled={isProcessing} // Disable input while processing
+             className="mb-4 file:text-primary file:font-semibold hover:file:bg-primary/10 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
            />
-          {image && (
+          {image && !isProcessing && !error && ( // Only show image if not processing and no error
             <div className="flex justify-center mb-4">
               <img src={image} alt="Uploaded Food" className="max-h-60 w-auto object-contain rounded-md border shadow-sm" />
             </div>
           )}
-           <div className="flex flex-col sm:flex-row gap-4">
-            <Button
-              onClick={handleFoodIdentification}
-              disabled={loadingFoodItems || !image}
-              className="w-full rounded-full"
-            >
-              {loadingFoodItems ? (
-                <>
-                  <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
-                  Identifying...
-                </>
-              ) : (
-                 <>
-                  <Icons.search className="mr-2 h-4 w-4" /> Identify Food
-                 </>
-              )}
-            </Button>
-            <Button
-              onClick={handleCalorieEstimation}
-              disabled={loadingCalorieEstimate || !foodItems || foodItems.length === 0}
-               className="w-full rounded-full"
-               variant="secondary"
-            >
-              {loadingCalorieEstimate ? (
-                <>
-                  <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
-                  Estimating...
-                </>
-              ) : (
-                <>
-                 <Icons.plusCircle className="mr-2 h-4 w-4" /> Estimate Calories
-                </>
-              )}
-            </Button>
-          </div>
+          {/* Removed the buttons */}
         </CardContent>
       </Card>
 
       {/* Results Display Area */}
        <div className="w-full max-w-lg space-y-4">
-         {/* Loading Skeletons */}
-          {(loadingFoodItems || loadingCalorieEstimate) && (
+         {/* Loading Skeleton */}
+          {isProcessing && (
             <Card className="shadow-md rounded-lg">
               <CardHeader>
-                <Skeleton className="h-6 w-3/5 rounded-md" />
-                 <Skeleton className="h-4 w-4/5 rounded-md" />
+                 <div className="flex items-center space-x-2 mb-2">
+                     <Icons.spinner className="h-5 w-5 animate-spin text-primary" />
+                     <CardTitle className="text-lg font-semibold">Processing Image...</CardTitle>
+                 </div>
+                 <CardDescription>Identifying food and estimating calories.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-2">
-                <Skeleton className="h-4 w-full rounded-md" />
-                <Skeleton className="h-4 w-full rounded-md" />
-                 <Skeleton className="h-4 w-2/3 rounded-md" />
+              <CardContent className="space-y-3 pt-2">
+                <div>
+                    <Skeleton className="h-4 w-3/4 mb-1 rounded-md" />
+                    <Skeleton className="h-4 w-full rounded-md" />
+                    <Skeleton className="h-4 w-5/6 rounded-md" />
+                </div>
+                 <div>
+                    <Skeleton className="h-4 w-1/2 mb-1 rounded-md" />
+                    <Skeleton className="h-4 w-full rounded-md" />
+                    <Skeleton className="h-4 w-2/3 rounded-md" />
+                 </div>
               </CardContent>
             </Card>
           )}
 
-          {/* Food Items Display */}
-          {!loadingFoodItems && foodItems !== null && (
-            <Card className="shadow-md rounded-lg animate-in fade-in duration-500">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold">Identified Food Items</CardTitle>
-                 <CardDescription>Here's what we found in your photo:</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {foodItems.length > 0 ? (
-                  <ul className="list-disc list-inside space-y-1">
-                    {foodItems.map((item, index) => (
-                      <li key={index}>{item}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-muted-foreground">No food items were identified. Try a different image or angle.</p>
-                )}
-              </CardContent>
-            </Card>
-          )}
+          {/* Error Display */}
+            {error && !isProcessing && (
+                 <Alert variant="destructive">
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>{error}</AlertDescription>
+                </Alert>
+            )}
 
-          {/* Calorie Estimate Display */}
-          {!loadingCalorieEstimate && calorieEstimate && (
-            <Card className="shadow-md rounded-lg animate-in fade-in duration-500">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold">Calorie Estimation</CardTitle>
-                <CardDescription>Approximate calorie count based on identified items:</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="whitespace-pre-wrap">{calorieEstimate}</p>
-              </CardContent>
-            </Card>
+
+          {/* Results Display (only when not processing and no error) */}
+          {!isProcessing && !error && foodItems !== null && (
+            <>
+              {/* Food Items Display */}
+              <Card className="shadow-md rounded-lg animate-in fade-in duration-500">
+                <CardHeader>
+                  <CardTitle className="text-lg font-semibold">Identified Food Items</CardTitle>
+                  <CardDescription>Here's what we found in your photo:</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {foodItems.length > 0 ? (
+                    <ul className="list-disc list-inside space-y-1">
+                      {foodItems.map((item, index) => (
+                        <li key={index}>{item}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-muted-foreground">No food items were identified. Try a different image or angle.</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Calorie Estimate Display */}
+              {calorieEstimate && (
+                <Card className="shadow-md rounded-lg animate-in fade-in duration-500 delay-100">
+                  <CardHeader>
+                    <CardTitle className="text-lg font-semibold">Calorie Estimation</CardTitle>
+                    <CardDescription>Approximate calorie count based on identified items:</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="whitespace-pre-wrap">{calorieEstimate}</p>
+                  </CardContent>
+                </Card>
+              )}
+            </>
           )}
        </div>
     </div>

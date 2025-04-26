@@ -1,12 +1,13 @@
 # CalorieSnap
 
-CalorieSnap is a web application built with Next.js that allows users to upload a photo of their meal. The application then uses AI to identify the food items present in the image and provides an estimated calorie count for the identified items.
+CalorieSnap is a web application built with Next.js that allows users to upload a photo of their meal. The application then automatically uses AI to identify the food items present in the image and provides an estimated calorie count for the identified items.
 
 ## Features
 
 -   **Image Upload:** Users can upload an image file containing a picture of food.
--   **Food Identification:** Utilizes Google's Gemini AI model (specifically `gemini-2.0-flash`) via Genkit to identify food items in the uploaded image.
--   **Calorie Estimation:** Estimates the total calorie count for the identified food items, also using the Gemini AI model via Genkit.
+-   **Automatic Food Identification & Calorie Estimation:** Upon image upload, the application automatically:
+    -   Utilizes Google's Gemini AI model (specifically `gemini-2.0-flash`) via Genkit to identify food items in the uploaded image.
+    -   Estimates the total calorie count for the identified food items, also using the Gemini AI model via Genkit.
 -   **User-Friendly Interface:** Built with ShadCN UI components and Tailwind CSS for a clean and responsive design, inspired by Cookpad's aesthetic.
 
 ## Tech Stack
@@ -69,27 +70,35 @@ Open [http://localhost:9002](http://localhost:9002) with your browser to see the
 ## How It Works
 
 1.  The user uploads an image via the file input on the main page (`src/app/page.tsx`).
-2.  The image is displayed, and the user clicks "Identify Food".
-3.  The `handleFoodIdentification` function calls the `identifyFoodItems` Genkit flow (`src/ai/flows/identify-food-items.ts`).
-4.  The flow sends the image (as a data URL) to the Gemini model (`gemini-2.0-flash`) to identify food items.
-5.  The identified food items are displayed to the user.
-6.  The user clicks "Estimate Calories".
-7.  The `handleCalorieEstimation` function calls the `estimateCalorieCount` Genkit flow (`src/ai/flows/estimate-calorie-count.ts`).
-8.  This flow sends the list of identified food items to the Gemini model (`gemini-2.0-flash`) to get calorie estimates.
-9.  The estimated calorie breakdown is displayed to the user.
+2.  The image is displayed momentarily while processing begins.
+3.  The `handleImageUpload` function triggers the `processImage` function.
+4.  The `processImage` function first calls the `identifyFoodItems` Genkit flow (`src/ai/flows/identify-food-items.ts`).
+5.  This flow sends the image (as a data URL) to the Gemini model (`gemini-2.0-flash`) to identify food items.
+6.  If food items are identified, `processImage` then calls the `estimateCalorieCount` Genkit flow (`src/ai/flows/estimate-calorie-count.ts`).
+7.  This flow sends the list of identified food items to the Gemini model (`gemini-2.0-flash`) to get calorie estimates.
+8.  The identified food items and the estimated calorie breakdown are displayed to the user once processing is complete. Loading and error states are handled visually.
 
 ## Project Structure
 
 -   `src/app/`: Main application pages and layout (Next.js App Router).
+    -   `page.tsx`: The main page component containing the UI and client-side logic.
+    -   `layout.tsx`: The root layout.
+    -   `globals.css`: Global CSS styles and Tailwind directives (including theme).
 -   `src/ai/`: Genkit configuration and flows.
     -   `flows/`: Contains the AI logic for identifying food and estimating calories.
+        -   `identify-food-items.ts`: Genkit flow for food identification.
+        -   `estimate-calorie-count.ts`: Genkit flow for calorie estimation.
     -   `ai-instance.ts`: Configures the Genkit instance and Google AI plugin.
     -   `dev.ts`: Entry point for the Genkit development server.
 -   `src/components/`: Reusable UI components.
     -   `ui/`: ShadCN UI components.
     -   `icons.ts`: Icon definitions using `lucide-react`.
--   `src/hooks/`: Custom React hooks (e.g., `use-toast`).
--   `src/lib/`: Utility functions.
+-   `src/hooks/`: Custom React hooks (e.g., `use-toast`, `use-mobile`).
+-   `src/lib/`: Utility functions (e.g., `cn` for class names).
 -   `public/`: Static assets.
--   `src/app/globals.css`: Global CSS styles and Tailwind directives.
-```
+-   `.env.local`: Environment variables (API Keys, etc. - **MUST be in .gitignore**).
+-   `next.config.ts`: Next.js configuration.
+-   `tailwind.config.ts`: Tailwind CSS configuration.
+-   `tsconfig.json`: TypeScript configuration.
+-   `package.json`: Project dependencies and scripts.
+-   `components.json`: ShadCN UI configuration.
