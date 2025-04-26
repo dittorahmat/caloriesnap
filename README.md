@@ -5,14 +5,14 @@ CalorieSnap is a web application built with Next.js that allows users to upload 
 ## Features
 
 -   **Image Upload:** Users can upload an image file containing a picture of food.
--   **Food Identification:** Utilizes Google's Gemini AI model via Genkit to identify food items in the uploaded image.
+-   **Food Identification:** Utilizes Google's Gemini AI model (specifically `gemini-2.0-flash`) via Genkit to identify food items in the uploaded image.
 -   **Calorie Estimation:** Estimates the total calorie count for the identified food items, also using the Gemini AI model via Genkit.
--   **User-Friendly Interface:** Built with ShadCN UI components and Tailwind CSS for a clean and responsive design.
+-   **User-Friendly Interface:** Built with ShadCN UI components and Tailwind CSS for a clean and responsive design, inspired by Cookpad's aesthetic.
 
 ## Tech Stack
 
 -   **Framework:** [Next.js](https://nextjs.org/) (App Router)
--   **AI/ML:** [Genkit](https://firebase.google.com/docs/genkit) with [Google Gemini](https://ai.google.dev/docs/gemini_api_overview)
+-   **AI/ML:** [Genkit](https://firebase.google.com/docs/genkit) with [Google Gemini](https://ai.google.dev/docs/gemini_api_overview) (`gemini-2.0-flash`)
 -   **UI Components:** [ShadCN UI](https://ui.shadcn.com/)
 -   **Styling:** [Tailwind CSS](https://tailwindcss.com/)
 -   **Language:** [TypeScript](https://www.typescriptlang.org/)
@@ -23,7 +23,7 @@ CalorieSnap is a web application built with Next.js that allows users to upload 
 
 -   Node.js (v18 or later recommended)
 -   npm or yarn
--   A Google Generative AI API Key (set as `GOOGLE_GENAI_API_KEY` environment variable)
+-   A Google Generative AI API Key.
 
 ### Installation
 
@@ -43,8 +43,10 @@ CalorieSnap is a web application built with Next.js that allows users to upload 
 3.  **Set up environment variables:**
     Create a `.env.local` file in the root directory and add your Google Generative AI API key:
     ```env
+    # .env.local
     GOOGLE_GENAI_API_KEY=YOUR_API_KEY_HERE
     ```
+    **Important:** Ensure your `.env.local` file is listed in your `.gitignore` file to prevent accidentally committing your API key.
 
 ### Running the Development Server
 
@@ -69,11 +71,11 @@ Open [http://localhost:9002](http://localhost:9002) with your browser to see the
 1.  The user uploads an image via the file input on the main page (`src/app/page.tsx`).
 2.  The image is displayed, and the user clicks "Identify Food".
 3.  The `handleFoodIdentification` function calls the `identifyFoodItems` Genkit flow (`src/ai/flows/identify-food-items.ts`).
-4.  The flow sends the image (as a data URL) to the Gemini model to identify food items.
+4.  The flow sends the image (as a data URL) to the Gemini model (`gemini-2.0-flash`) to identify food items.
 5.  The identified food items are displayed to the user.
 6.  The user clicks "Estimate Calories".
 7.  The `handleCalorieEstimation` function calls the `estimateCalorieCount` Genkit flow (`src/ai/flows/estimate-calorie-count.ts`).
-8.  This flow sends the list of identified food items to the Gemini model to get calorie estimates.
+8.  This flow sends the list of identified food items to the Gemini model (`gemini-2.0-flash`) to get calorie estimates.
 9.  The estimated calorie breakdown is displayed to the user.
 
 ## Project Structure
@@ -89,4 +91,5 @@ Open [http://localhost:9002](http://localhost:9002) with your browser to see the
 -   `src/hooks/`: Custom React hooks (e.g., `use-toast`).
 -   `src/lib/`: Utility functions.
 -   `public/`: Static assets.
--   `styles/`: Global CSS styles.
+-   `src/app/globals.css`: Global CSS styles and Tailwind directives.
+```
